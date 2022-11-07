@@ -7,6 +7,8 @@ const corsModule=require('cors')
 const db=require('./database/index');
 const { json, response } = require('express');
 const server=require('http').createServer(app)
+
+
 const io = require("socket.io")(server, {
 	cors: {
 	  origin: "*",
@@ -16,9 +18,11 @@ const io = require("socket.io")(server, {
 db.init()  //for DB connection
 
 app.use(corsModule())
-app.use(express.json())
+// app.use(express.json())
 app.use(express.text())
 app.use(cookieParser());
+app.use(express.json({limit: "300mb",extended:true}));
+app.use(express.urlencoded({limit: "300mb",extended:true}));
 
 //------Socket.io-----------------------------------------------
 io.on('connection',async (socket) => {
@@ -33,6 +37,10 @@ socket.on('create', function(room) {
 		socket.on('chat message', function(msg) {
 			console.log("msg recived")
 			io.emit('message', msg);
+	    	});
+			socket.on('chat image', function(img) {
+				console.log("img recived")
+				io.emit('image', img);
 			// io.sockets.in(room).emit('message', msg);
 		
 		  });
@@ -43,12 +51,18 @@ socket.on('create', function(room) {
 		socket.join(room);
 		console.log("Rooms in socket",socket.rooms)
 	
-		socket.on('chat message', function(msg) {
-			console.log("msg recived")
+		socket.on('chat message', function(msg,sendBy) {
+			console.log("msg recived",msg,sendBy)
 			
-			io.sockets.in(room).emit('message', msg);
+			
+			io.sockets.in(room).emit('message', msg,sendBy);
 			
 		  });
+		  socket.on('chat image', function(img,sendBy) {
+			console.log("img recived")
+			io.sockets.in(room).emit('image', img,sendBy);
+		});
+
 
 	}
   });
@@ -207,6 +221,94 @@ app.post('/message',async(req,res)=>{
 	try {
 		await chatIdModel.create({
 			content,
+			createdBy,
+			createdWith,
+			chatId
+		})
+	userModel.findOne({_id:sender_id})
+	.then(data=>{
+		if(!data) return
+		if(!(data.chat_with).length)
+		{
+			console.log("inside if")
+			userModel.updateOne({_id:sender_id},
+				{$push :{chat_with:{chatId,createdWith,reciever_id}}})
+				.then(data=>{console.log("sender",data)})
+		}
+		else
+		{
+			const found=(data.chat_with).find(item=>{return item.chatId==chatId})
+			// console.log("found",found,data.chat_with)
+			//no need to create again
+			if(!found)
+			{
+				console.log("new chatid created")
+				userModel.updateOne({_id:sender_id},
+					{$push :{chat_with:{chatId,createdWith,reciever_id}}})
+					.then(data=>{return console.log("sender",data)})
+			}
+			console.log("no need to create again chatid")
+			return
+		}
+	})
+
+	userModel.findOne({_id:reciever_id})
+	.then(data=>{
+		if(!data) return
+		if(!(data.chat_with).length)
+		{
+			console.log("inside if")
+			userModel.updateOne({_id:reciever_id},
+				{$push :{chat_with:{chatId,createdBy,sender_id}}})
+				.then(data=>{return console.log("reciever",data)})
+		}
+		else
+		{
+		 const found=(data.chat_with).find(item=>{return item.chatId===chatId})
+		 //no need to create again
+		 if(!found)
+		 {
+			console.log("new chatid created")
+			userModel.updateOne({_id:reciever_id},
+				{$push :{chat_with:{chatId,createdBy,sender_id}}})
+				.then(data=>{console.log("reciever",data)})
+		 }
+		 console.log("no need to create again chatid")
+		}
+	})
+	
+
+	} catch (err) {
+		console.error(err);
+	}
+
+})
+
+//for images
+app.post('/image',async(req,res)=>{
+	const response=req.body
+	const image=response.img
+	console.log("Inside image Route")
+	const createdBy=response.user2user.sender.username
+	
+
+	const sender_id=response.user2user.sender._id
+	const reciever_id=response.user2user.reciever._id
+
+
+	console.log("createdBy",createdBy)
+
+	const createdWith=response.user2user.reciever.username
+
+
+	console.log("createdWith",createdWith)
+
+	const ids=`${createdBy}${createdWith}`
+	const chatId=ids.split('').sort().join('');
+	console.log("chatID",chatId)
+	try {
+		await chatIdModel.create({
+			image,
 			createdBy,
 			createdWith,
 			chatId

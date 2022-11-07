@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const chatIdSchema  = new mongoose.Schema({
             content:{type:String,require:true},
+            image:{type:String,default:null},
             createdBy:{type:String,require:true},
             createdWith:{type:String,require:true},
             chatId:{type:String,require:true},
