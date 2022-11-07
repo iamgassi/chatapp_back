@@ -34,13 +34,13 @@ socket.on('create', function(room) {
         //   let temp="Temp_ID"
 		// socket.join(temp);
 		console.log("Rooms in socket",socket.rooms)
-		socket.on('chat message', function(msg) {
+		socket.on('chat message', function(msg,sendBy) {
 			console.log("msg recived")
-			io.emit('message', msg);
+			io.emit('message', msg,sendBy);
 	    	});
-			socket.on('chat image', function(img) {
+			socket.on('chat image', function(img,sendBy) {
 				console.log("img recived")
-				io.emit('image', img);
+				io.emit('image', img,sendBy);
 			// io.sockets.in(room).emit('message', msg);
 		
 		  });
